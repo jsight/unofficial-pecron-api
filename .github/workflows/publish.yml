@@ -17,6 +17,12 @@ jobs:
       - name: Build distribution
         run: uv build
 
+      - name: Test install
+        run: |
+          python -m venv /tmp/test-install
+          /tmp/test-install/bin/pip install dist/unofficial_pecron_api-*.whl
+          /tmp/test-install/bin/python -c "import unofficial_pecron_api; print(f'Success: {unofficial_pecron_api.__version__}')"
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
