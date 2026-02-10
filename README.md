@@ -20,20 +20,24 @@ Unofficial Python API client for **Pecron portable power stations**. Query batte
 
 ## Installation
 
-### With uv (recommended)
+### With pip (recommended)
+
+```bash
+pip install unofficial-pecron-api
+```
+
+### With uv
+
+```bash
+uv pip install unofficial-pecron-api
+```
+
+### From source (development)
 
 ```bash
 git clone https://github.com/jsightler/unofficial-pecron-api.git
 cd unofficial-pecron-api
 uv sync
-```
-
-### With pip
-
-```bash
-git clone https://github.com/jsightler/unofficial-pecron-api.git
-cd unofficial-pecron-api
-pip install .
 ```
 
 ## CLI Usage
