@@ -1,5 +1,7 @@
 """Unofficial Python API client for Pecron portable power stations."""
 
+__version__ = "0.1.0"
+
 from .client import PecronAPI
 from .const import Region
 from .exceptions import AuthenticationError, DeviceNotFoundError, PecronAPIError
