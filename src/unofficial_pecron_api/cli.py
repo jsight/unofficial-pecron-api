@@ -4,6 +4,9 @@ Usage:
     pecron devices                       # list all devices
     pecron status                        # show status of all devices
     pecron status --device E300LFP_D469  # show status of one device
+    pecron set --ac on                   # turn AC output on
+    pecron set --dc off --device E300    # turn DC output off for one device
+    pecron tsl --writable                # show writable properties
     pecron raw                           # dump raw business attributes JSON
 """
 
@@ -73,6 +76,35 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("devices", help="List all devices on the account")
     sub.add_parser("status", help="Show device properties (battery, power, switches)")
+
+    set_parser = sub.add_parser("set", help="Control device outputs (AC, DC)")
+    set_parser.add_argument(
+        "--ac",
+        choices=["on", "off"],
+        help="Turn AC output on or off",
+    )
+    set_parser.add_argument(
+        "--dc",
+        choices=["on", "off"],
+        help="Turn DC output on or off",
+    )
+    set_parser.add_argument(
+        "--property",
+        metavar="CODE",
+        help="Set an arbitrary property by its TSL resource code",
+    )
+    set_parser.add_argument(
+        "--value",
+        help="Value for --property (required with --property)",
+    )
+
+    tsl_parser = sub.add_parser("tsl", help="Show device property definitions from TSL")
+    tsl_parser.add_argument(
+        "--writable",
+        action="store_true",
+        help="Show only writable (controllable) properties",
+    )
+
     sub.add_parser("raw", help="Dump raw business attributes as JSON")
 
     return parser
@@ -294,6 +326,121 @@ def _battery_bar(pct: int, width: int = 20) -> str:
     return f"[{color}{'|' * filled}{reset}{'.' * empty}]"
 
 
+def _cmd_set(args: argparse.Namespace) -> None:
+    # Build the properties dict from flags
+    properties: dict = {}
+    if args.ac is not None:
+        properties["ac_switch_hm"] = args.ac == "on"
+    if args.dc is not None:
+        properties["dc_switch_hm"] = args.dc == "on"
+    if args.property:
+        if args.value is None:
+            print("Error: --value is required when using --property", file=sys.stderr)
+            sys.exit(1)
+        # Try to parse the value as JSON (for booleans, numbers); fall back to string
+        raw = args.value
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            parsed = raw
+        properties[args.property] = parsed
+
+    if not properties:
+        print("Error: at least one of --ac, --dc, or --property is required", file=sys.stderr)
+        sys.exit(1)
+
+    with _connect(args) as api:
+        devices = _filter_devices(api.get_devices(), args.device)
+        if not devices:
+            print("No devices found.")
+            return
+
+        all_results = []
+        exit_code = 0
+        for dev in devices:
+            try:
+                result = api.set_device_property(dev, properties)
+            except PecronAPIError as exc:
+                print(f"Error sending command to {dev.device_name}: {exc}", file=sys.stderr)
+                exit_code = 1
+                continue
+
+            if args.json_output:
+                all_results.append({
+                    "device": dev.device_name,
+                    "success": result.success,
+                    "ticket": result.ticket,
+                    "error": result.error_message,
+                })
+            else:
+                if result.success:
+                    label = ", ".join(
+                        f"{k}={v}" for k, v in properties.items()
+                    )
+                    print(f"  {dev.device_name}: OK ({label})")
+                else:
+                    print(
+                        f"  {dev.device_name}: FAILED - {result.error_message}",
+                        file=sys.stderr,
+                    )
+                    exit_code = 1
+
+        if args.json_output:
+            print(json.dumps(all_results, indent=2))
+        if exit_code:
+            sys.exit(exit_code)
+
+
+def _cmd_tsl(args: argparse.Namespace) -> None:
+    with _connect(args) as api:
+        devices = _filter_devices(api.get_devices(), args.device)
+        if not devices:
+            print("No devices found.")
+            return
+
+        all_results = []
+        for dev in devices:
+            try:
+                tsl_props = api.get_product_tsl(dev)
+            except PecronAPIError as exc:
+                print(f"Error fetching TSL for {dev.device_name}: {exc}", file=sys.stderr)
+                continue
+
+            if args.writable:
+                tsl_props = [p for p in tsl_props if p.writable]
+
+            if args.json_output:
+                all_results.append({
+                    "device": dev.device_name,
+                    "product": dev.product_name,
+                    "properties": [
+                        {
+                            "code": p.code,
+                            "name": p.name,
+                            "data_type": p.data_type,
+                            "sub_type": p.sub_type,
+                            "writable": p.writable,
+                        }
+                        for p in tsl_props
+                    ],
+                })
+            else:
+                label = "writable properties" if args.writable else "properties"
+                print(f"  {dev.device_name} ({dev.product_name}) - {len(tsl_props)} {label}:\n")
+                if tsl_props:
+                    # Table header
+                    print(f"    {'Code':<30s} {'Name':<20s} {'Type':<8s} {'Access'}")
+                    print(f"    {'-'*30} {'-'*20} {'-'*8} {'-'*6}")
+                    for p in tsl_props:
+                        print(f"    {p.code:<30s} {p.name:<20s} {p.data_type:<8s} {p.sub_type}")
+                else:
+                    print("    (none)")
+                print()
+
+        if args.json_output:
+            print(json.dumps(all_results, indent=2))
+
+
 def _cmd_raw(args: argparse.Namespace) -> None:
     with _connect(args) as api:
         devices = _filter_devices(api.get_devices(), args.device)
@@ -329,6 +476,8 @@ def main() -> None:
     commands = {
         "devices": _cmd_devices,
         "status": _cmd_status,
+        "set": _cmd_set,
+        "tsl": _cmd_tsl,
         "raw": _cmd_raw,
     }
     commands[args.command](args)

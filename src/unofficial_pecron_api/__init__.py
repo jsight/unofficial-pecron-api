@@ -4,15 +4,18 @@ __version__ = "0.1.0"
 
 from .client import PecronAPI
 from .const import Region
-from .exceptions import AuthenticationError, DeviceNotFoundError, PecronAPIError
-from .models import Device, DeviceProperties
+from .exceptions import AuthenticationError, CommandError, DeviceNotFoundError, PecronAPIError
+from .models import CommandResult, Device, DeviceProperties, TslProperty
 
 __all__ = [
     "PecronAPI",
     "Region",
+    "CommandResult",
     "Device",
     "DeviceProperties",
+    "TslProperty",
     "PecronAPIError",
     "AuthenticationError",
+    "CommandError",
     "DeviceNotFoundError",
 ]

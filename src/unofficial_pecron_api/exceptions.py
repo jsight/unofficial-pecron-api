@@ -16,3 +16,7 @@ class AuthenticationError(PecronAPIError):
 
 class DeviceNotFoundError(PecronAPIError):
     """Raised when a device lookup fails (invalid pk/dk)."""
+
+
+class CommandError(PecronAPIError):
+    """Raised when a device command fails."""

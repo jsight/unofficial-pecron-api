@@ -6,15 +6,22 @@ portable power stations.
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
+from typing import Any
 
 import requests
 
 from .auth import compute_signature, encrypt_password, generate_random
 from .const import APP_ID, APP_SYSTEM_TYPE, APP_VERSION, REGIONS, Region
-from .exceptions import AuthenticationError, DeviceNotFoundError, PecronAPIError
-from .models import Device, DeviceProperties
+from .exceptions import (
+    AuthenticationError,
+    CommandError,
+    DeviceNotFoundError,
+    PecronAPIError,
+)
+from .models import CommandResult, Device, DeviceProperties, TslProperty
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -157,6 +164,80 @@ class PecronAPI:
             "/v2/binding/enduserapi/deviceInfo",
             params={"pk": device.product_key, "dk": device.device_key},
         )
+
+    def get_product_tsl(self, device: Device) -> list[TslProperty]:
+        """Get the Thing Specification Language model for a device's product.
+
+        Returns a list of property definitions including whether each is writable.
+        Use this to discover what commands are available for a specific device model.
+        """
+        result = self._request(
+            "GET",
+            "/v2/binding/enduserapi/productTSL",
+            params={"productKey": device.product_key},
+        )
+        properties = []
+        if isinstance(result, dict):
+            tsl_json = result.get("tslJson")
+            if isinstance(tsl_json, str):
+                tsl_json = json.loads(tsl_json)
+            if isinstance(tsl_json, dict):
+                raw_props = tsl_json.get("properties", [])
+            else:
+                raw_props = result.get("properties", [])
+        elif isinstance(result, list):
+            raw_props = result
+        else:
+            raw_props = []
+        for item in raw_props:
+            properties.append(TslProperty.from_api(item))
+        return properties
+
+    def set_device_property(
+        self, device: Device, properties: dict[str, Any]
+    ) -> CommandResult:
+        """Set one or more device properties.
+
+        Args:
+            device: Target device.
+            properties: Dict of property_code -> value pairs,
+                e.g. ``{"ac_switch_hm": True, "dc_switch_hm": False}``.
+
+        Returns:
+            CommandResult with success/failure info and a ticket on success.
+
+        Raises:
+            CommandError: If the API request itself fails.
+        """
+        data_list = [{code: value} for code, value in properties.items()]
+        batch_param = {
+            "data": json.dumps(data_list),
+            "deviceList": [
+                {
+                    "productKey": device.product_key,
+                    "deviceKey": device.device_key,
+                }
+            ],
+            "type": 0,
+        }
+        try:
+            result = self._request(
+                "POST",
+                "/v2/binding/enduserapi/batchControlDevice",
+                form_data={"json": json.dumps(batch_param)},
+            )
+        except PecronAPIError as exc:
+            raise CommandError(exc.message, code=exc.code) from exc
+
+        return CommandResult.from_api(result, device.product_key, device.device_key)
+
+    def set_ac_output(self, device: Device, enabled: bool) -> CommandResult:
+        """Enable or disable the AC output."""
+        return self.set_device_property(device, {"ac_switch_hm": enabled})
+
+    def set_dc_output(self, device: Device, enabled: bool) -> CommandResult:
+        """Enable or disable the DC output."""
+        return self.set_device_property(device, {"dc_switch_hm": enabled})
 
     def close(self) -> None:
         """Close the HTTP session."""

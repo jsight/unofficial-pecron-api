@@ -123,3 +123,52 @@ class DeviceProperties:
             if item.get("resourceCode") == resource_code:
                 return item.get("resourceValce")
         return None
+
+
+@dataclass
+class CommandResult:
+    """Result of a device command (set property) operation."""
+
+    success: bool
+    ticket: str | None = None
+    error_message: str | None = None
+
+    @classmethod
+    def from_api(
+        cls, response: dict, product_key: str, device_key: str
+    ) -> CommandResult:
+        """Parse a batchControlDevice API response for a specific device."""
+        for item in response.get("successList") or []:
+            data = item.get("data") or {}
+            if data.get("productKey") == product_key and data.get("deviceKey") == device_key:
+                return cls(success=True, ticket=item.get("ticket"))
+
+        for item in response.get("failureList") or []:
+            data = item.get("data") or {}
+            if data.get("productKey") == product_key and data.get("deviceKey") == device_key:
+                return cls(success=False, error_message=item.get("msg"))
+
+        return cls(success=False, error_message="Device not found in API response")
+
+
+@dataclass
+class TslProperty:
+    """A device property definition from the Thing Specification Language model."""
+
+    code: str
+    name: str
+    data_type: str
+    sub_type: str
+    writable: bool
+
+    @classmethod
+    def from_api(cls, data: dict) -> TslProperty:
+        """Parse a single property from the productTSL API response."""
+        sub_type = data.get("subType", "R")
+        return cls(
+            code=data.get("code", data.get("resourceCode", "")),
+            name=data.get("name", ""),
+            data_type=data.get("dataType", ""),
+            sub_type=sub_type,
+            writable=sub_type in ("RW", "W"),
+        )

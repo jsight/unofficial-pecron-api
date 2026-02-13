@@ -1,6 +1,6 @@
 """Tests for data model parsing."""
 
-from unofficial_pecron_api.models import Device, DeviceProperties
+from unofficial_pecron_api.models import CommandResult, Device, DeviceProperties, TslProperty
 
 SAMPLE_DEVICE_API = {
     "deviceName": "E300LFP_D469",
@@ -219,3 +219,104 @@ class TestDeviceProperties:
         ]
         props = DeviceProperties.from_api(bad_tsl)
         assert props.battery_percentage is None
+
+
+class TestCommandResult:
+    def test_from_success_response(self):
+        response = {
+            "successList": [
+                {
+                    "data": {"productKey": "pk1", "deviceKey": "dk1"},
+                    "ticket": "ticket_abc",
+                }
+            ],
+            "failureList": [],
+        }
+        result = CommandResult.from_api(response, "pk1", "dk1")
+        assert result.success is True
+        assert result.ticket == "ticket_abc"
+        assert result.error_message is None
+
+    def test_from_failure_response(self):
+        response = {
+            "successList": [],
+            "failureList": [
+                {
+                    "data": {"productKey": "pk1", "deviceKey": "dk1"},
+                    "msg": "Device offline",
+                }
+            ],
+        }
+        result = CommandResult.from_api(response, "pk1", "dk1")
+        assert result.success is False
+        assert result.error_message == "Device offline"
+        assert result.ticket is None
+
+    def test_device_not_in_response(self):
+        response = {
+            "successList": [
+                {"data": {"productKey": "other_pk", "deviceKey": "other_dk"}, "ticket": "t1"}
+            ],
+            "failureList": [],
+        }
+        result = CommandResult.from_api(response, "pk1", "dk1")
+        assert result.success is False
+        assert result.error_message == "Device not found in API response"
+
+    def test_empty_lists(self):
+        result = CommandResult.from_api({}, "pk1", "dk1")
+        assert result.success is False
+
+    def test_none_lists(self):
+        result = CommandResult.from_api({"successList": None, "failureList": None}, "pk1", "dk1")
+        assert result.success is False
+
+
+class TestTslProperty:
+    def test_from_api_read_only(self):
+        prop = TslProperty.from_api({
+            "code": "battery_percentage",
+            "name": "Battery power",
+            "dataType": "INT",
+            "subType": "R",
+        })
+        assert prop.code == "battery_percentage"
+        assert prop.name == "Battery power"
+        assert prop.data_type == "INT"
+        assert prop.sub_type == "R"
+        assert prop.writable is False
+
+    def test_from_api_read_write(self):
+        prop = TslProperty.from_api({
+            "code": "ac_switch_hm",
+            "name": "Ac switch",
+            "dataType": "BOOL",
+            "subType": "RW",
+        })
+        assert prop.writable is True
+
+    def test_from_api_write_only(self):
+        prop = TslProperty.from_api({
+            "code": "some_command",
+            "name": "Command",
+            "dataType": "INT",
+            "subType": "W",
+        })
+        assert prop.writable is True
+
+    def test_from_api_fallback_to_resource_code(self):
+        prop = TslProperty.from_api({
+            "resourceCode": "dc_switch_hm",
+            "name": "Dc switch",
+            "dataType": "BOOL",
+            "subType": "RW",
+        })
+        assert prop.code == "dc_switch_hm"
+
+    def test_from_api_missing_fields(self):
+        prop = TslProperty.from_api({})
+        assert prop.code == ""
+        assert prop.name == ""
+        assert prop.data_type == ""
+        assert prop.sub_type == "R"
+        assert prop.writable is False

@@ -9,6 +9,8 @@ Unofficial Python API client for **Pecron portable power stations**. Query batte
 - Authenticate with the Pecron/Quectel cloud API (US, EU, CN regions)
 - List all devices on your account
 - Read live device properties: battery %, input/output wattage, AC/DC switches, UPS mode, charge/discharge time estimates, and more
+- **Control device outputs**: turn AC and DC outputs on/off via the cloud API
+- **Discover device capabilities**: query the TSL (Thing Specification Language) model to find all available properties and which are controllable
 - CLI tool with human-readable and JSON output modes
 - Clean Python API for integration into other projects (e.g. Home Assistant)
 
@@ -83,6 +85,47 @@ uv run pecron status --json
 uv run pecron devices --json
 ```
 
+### Control device outputs
+
+Turn AC or DC outputs on and off:
+
+```bash
+# Turn AC output on
+uv run pecron set --ac on
+
+# Turn DC output off for a specific device
+uv run pecron set --dc off --device E300LFP
+
+# Turn both AC and DC on at once
+uv run pecron set --ac on --dc on
+
+# Set an arbitrary property by TSL resource code
+uv run pecron set --property ac_switch_hm --value true
+```
+
+### Discover device properties
+
+Use the `tsl` command to see what properties your device supports:
+
+```bash
+# Show all properties
+uv run pecron tsl
+
+# Show only writable (controllable) properties
+uv run pecron tsl --writable
+```
+
+Example output:
+
+```
+  E300LFP_D469 (E300LFP) - 2 writable properties:
+
+    Code                           Name                 Type     Access
+    ------------------------------ -------------------- -------- ------
+    ac_switch_hm                   Ac switch            BOOL     RW
+    dc_switch_hm                   Dc switch            BOOL     RW
+```
+
 ### Dump raw API response
 
 For debugging or discovering new fields:
@@ -116,7 +159,7 @@ Credentials can be provided three ways (in order of precedence):
 ```
 usage: pecron [-h] [-r {CN,EU,US}] [-e EMAIL] [-p PASSWORD] [-d NAME]
               [--json] [-v] [--version]
-              {devices,status,raw} ...
+              {devices,status,set,tsl,raw} ...
 
 Options:
   -r, --region {CN,EU,US}   Cloud region (default: US)
@@ -130,6 +173,8 @@ Options:
 Commands:
   devices    List all devices on the account
   status     Show device properties (battery, power, switches)
+  set        Control device outputs (--ac on/off, --dc on/off)
+  tsl        Show device property definitions (--writable for controllable only)
   raw        Dump raw business attributes as JSON
 ```
 
@@ -142,11 +187,24 @@ with PecronAPI(region="US") as api:
     api.login("user@example.com", "password")
 
     for device in api.get_devices():
+        # Read device state
         props = api.get_device_properties(device)
         print(f"{device.device_name}: {props.battery_percentage}%")
         print(f"  Input: {props.total_input_power}W")
         print(f"  Output: {props.total_output_power}W")
         print(f"  AC: {'ON' if props.ac_switch else 'OFF'}")
+
+        # Control outputs
+        result = api.set_ac_output(device, enabled=True)
+        print(f"  AC on: {'OK' if result.success else result.error_message}")
+
+        result = api.set_dc_output(device, enabled=False)
+        print(f"  DC off: {'OK' if result.success else result.error_message}")
+
+        # Discover writable properties
+        for prop in api.get_product_tsl(device):
+            if prop.writable:
+                print(f"  Writable: {prop.code} ({prop.data_type})")
 ```
 
 ### Key classes
@@ -159,6 +217,10 @@ with PecronAPI(region="US") as api:
 | `get_devices()` | `list[Device]` | All devices on the account |
 | `get_device_properties(device)` | `DeviceProperties` | Live battery/power/switch state |
 | `get_device_info(device)` | `dict` | Raw device info |
+| `get_product_tsl(device)` | `list[TslProperty]` | Property definitions (discover writable props) |
+| `set_ac_output(device, enabled)` | `CommandResult` | Turn AC output on/off |
+| `set_dc_output(device, enabled)` | `CommandResult` | Turn DC output on/off |
+| `set_device_property(device, props)` | `CommandResult` | Set arbitrary properties by code |
 | `close()` | `None` | Close HTTP session |
 
 **`Device`** — A bound device.
@@ -191,6 +253,24 @@ with PecronAPI(region="US") as api:
 | `raw` | `list[dict]` | Full `customizeTslInfo` for custom access |
 
 Use `props.get_by_code("resource_code")` to access any property not covered by the typed fields.
+
+**`CommandResult`** — Result of a device command.
+
+| Field | Type | Description |
+|---|---|---|
+| `success` | `bool` | Whether the command was accepted |
+| `ticket` | `str \| None` | Transaction ticket (on success) |
+| `error_message` | `str \| None` | Error description (on failure) |
+
+**`TslProperty`** — A device property definition from the TSL model.
+
+| Field | Type | Description |
+|---|---|---|
+| `code` | `str` | Property resource code (e.g. `"ac_switch_hm"`) |
+| `name` | `str` | Human-readable name |
+| `data_type` | `str` | `"BOOL"`, `"INT"`, `"STRUCT"`, etc. |
+| `sub_type` | `str` | `"R"` (read), `"RW"` (read-write), `"W"` (write) |
+| `writable` | `bool` | `True` if the property can be set |
 
 ## Supported Regions
 
