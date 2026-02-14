@@ -274,12 +274,14 @@ class TestCommandResult:
 
 class TestTslProperty:
     def test_from_api_read_only(self):
-        prop = TslProperty.from_api({
-            "code": "battery_percentage",
-            "name": "Battery power",
-            "dataType": "INT",
-            "subType": "R",
-        })
+        prop = TslProperty.from_api(
+            {
+                "code": "battery_percentage",
+                "name": "Battery power",
+                "dataType": "INT",
+                "subType": "R",
+            }
+        )
         assert prop.code == "battery_percentage"
         assert prop.name == "Battery power"
         assert prop.data_type == "INT"
@@ -287,30 +289,36 @@ class TestTslProperty:
         assert prop.writable is False
 
     def test_from_api_read_write(self):
-        prop = TslProperty.from_api({
-            "code": "ac_switch_hm",
-            "name": "Ac switch",
-            "dataType": "BOOL",
-            "subType": "RW",
-        })
+        prop = TslProperty.from_api(
+            {
+                "code": "ac_switch_hm",
+                "name": "Ac switch",
+                "dataType": "BOOL",
+                "subType": "RW",
+            }
+        )
         assert prop.writable is True
 
     def test_from_api_write_only(self):
-        prop = TslProperty.from_api({
-            "code": "some_command",
-            "name": "Command",
-            "dataType": "INT",
-            "subType": "W",
-        })
+        prop = TslProperty.from_api(
+            {
+                "code": "some_command",
+                "name": "Command",
+                "dataType": "INT",
+                "subType": "W",
+            }
+        )
         assert prop.writable is True
 
     def test_from_api_fallback_to_resource_code(self):
-        prop = TslProperty.from_api({
-            "resourceCode": "dc_switch_hm",
-            "name": "Dc switch",
-            "dataType": "BOOL",
-            "subType": "RW",
-        })
+        prop = TslProperty.from_api(
+            {
+                "resourceCode": "dc_switch_hm",
+                "name": "Dc switch",
+                "dataType": "BOOL",
+                "subType": "RW",
+            }
+        )
         assert prop.code == "dc_switch_hm"
 
     def test_from_api_missing_fields(self):

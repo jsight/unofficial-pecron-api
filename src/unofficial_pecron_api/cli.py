@@ -373,17 +373,17 @@ def _cmd_set(args: argparse.Namespace) -> None:
                 continue
 
             if args.json_output:
-                all_results.append({
-                    "device": dev.device_name,
-                    "success": result.success,
-                    "ticket": result.ticket,
-                    "error": result.error_message,
-                })
+                all_results.append(
+                    {
+                        "device": dev.device_name,
+                        "success": result.success,
+                        "ticket": result.ticket,
+                        "error": result.error_message,
+                    }
+                )
             else:
                 if result.success:
-                    label = ", ".join(
-                        f"{k}={v}" for k, v in properties.items()
-                    )
+                    label = ", ".join(f"{k}={v}" for k, v in properties.items())
                     print(f"  {dev.device_name}: OK ({label})")
                 else:
                     print(
@@ -417,27 +417,29 @@ def _cmd_tsl(args: argparse.Namespace) -> None:
                 tsl_props = [p for p in tsl_props if p.writable]
 
             if args.json_output:
-                all_results.append({
-                    "device": dev.device_name,
-                    "product": dev.product_name,
-                    "properties": [
-                        {
-                            "code": p.code,
-                            "name": p.name,
-                            "data_type": p.data_type,
-                            "sub_type": p.sub_type,
-                            "writable": p.writable,
-                        }
-                        for p in tsl_props
-                    ],
-                })
+                all_results.append(
+                    {
+                        "device": dev.device_name,
+                        "product": dev.product_name,
+                        "properties": [
+                            {
+                                "code": p.code,
+                                "name": p.name,
+                                "data_type": p.data_type,
+                                "sub_type": p.sub_type,
+                                "writable": p.writable,
+                            }
+                            for p in tsl_props
+                        ],
+                    }
+                )
             else:
                 label = "writable properties" if args.writable else "properties"
                 print(f"  {dev.device_name} ({dev.product_name}) - {len(tsl_props)} {label}:\n")
                 if tsl_props:
                     # Table header
                     print(f"    {'Code':<30s} {'Name':<20s} {'Type':<8s} {'Access'}")
-                    print(f"    {'-'*30} {'-'*20} {'-'*8} {'-'*6}")
+                    print(f"    {'-' * 30} {'-' * 20} {'-' * 8} {'-' * 6}")
                     for p in tsl_props:
                         print(f"    {p.code:<30s} {p.name:<20s} {p.data_type:<8s} {p.sub_type}")
                 else:

@@ -193,9 +193,7 @@ class PecronAPI:
             properties.append(TslProperty.from_api(item))
         return properties
 
-    def set_device_property(
-        self, device: Device, properties: dict[str, Any]
-    ) -> CommandResult:
+    def set_device_property(self, device: Device, properties: dict[str, Any]) -> CommandResult:
         """Set one or more device properties.
 
         Args:

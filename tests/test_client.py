@@ -73,9 +73,7 @@ class TestSetDeviceProperty:
         }
 
         with patch.object(api._session, "request", return_value=_mock_response(response_data)):
-            result = api.set_device_property(
-                device, {"ac_switch_hm": True, "dc_switch_hm": False}
-            )
+            result = api.set_device_property(device, {"ac_switch_hm": True, "dc_switch_hm": False})
 
             json_body = api._session.request.call_args[1]["json"]
             data_list = json.loads(json_body["data"])
@@ -108,9 +106,7 @@ class TestSetDeviceProperty:
         api._access_token = "test_token"
         device = _make_device()
 
-        with patch.object(
-            api._session, "request", return_value=_mock_response(None, code=500)
-        ):
+        with patch.object(api._session, "request", return_value=_mock_response(None, code=500)):
             with pytest.raises(CommandError):
                 api.set_device_property(device, {"ac_switch_hm": True})
 
@@ -186,22 +182,24 @@ class TestGetProductTsl:
         device = _make_device()
 
         tsl_response = {
-            "tslJson": json.dumps({
-                "properties": [
-                    {
-                        "code": "battery_percentage",
-                        "name": "Battery power",
-                        "dataType": "INT",
-                        "subType": "R",
-                    },
-                    {
-                        "code": "ac_switch_hm",
-                        "name": "Ac switch",
-                        "dataType": "BOOL",
-                        "subType": "RW",
-                    },
-                ]
-            })
+            "tslJson": json.dumps(
+                {
+                    "properties": [
+                        {
+                            "code": "battery_percentage",
+                            "name": "Battery power",
+                            "dataType": "INT",
+                            "subType": "R",
+                        },
+                        {
+                            "code": "ac_switch_hm",
+                            "name": "Ac switch",
+                            "dataType": "BOOL",
+                            "subType": "RW",
+                        },
+                    ]
+                }
+            )
         }
 
         with patch.object(api._session, "request", return_value=_mock_response(tsl_response)):

@@ -134,9 +134,7 @@ class CommandResult:
     error_message: str | None = None
 
     @classmethod
-    def from_api(
-        cls, response: dict, product_key: str, device_key: str
-    ) -> CommandResult:
+    def from_api(cls, response: dict, product_key: str, device_key: str) -> CommandResult:
         """Parse a batchControlDevice API response for a specific device."""
         for item in response.get("successList") or []:
             data = item.get("data") or {}
