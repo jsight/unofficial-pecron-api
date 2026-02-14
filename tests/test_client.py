@@ -49,14 +49,12 @@ class TestSetDeviceProperty:
             assert call_args[0][0] == "POST"
             assert call_args[0][1].endswith("/v2/binding/enduserapi/batchControlDevice")
 
-            form_data = call_args[1]["data"]
-            assert "json" in form_data
-            parsed = json.loads(form_data["json"])
-            assert parsed["type"] == 0
-            assert parsed["deviceList"][0]["productKey"] == "p11u2Q"
-            assert parsed["deviceList"][0]["deviceKey"] == "ACD9296AD469"
+            json_body = call_args[1]["json"]
+            assert json_body["type"] == 2
+            assert json_body["deviceList"][0]["productKey"] == "p11u2Q"
+            assert json_body["deviceList"][0]["deviceKey"] == "ACD9296AD469"
 
-            data_list = json.loads(parsed["data"])
+            data_list = json.loads(json_body["data"])
             assert data_list == [{"ac_switch_hm": True}]
 
             assert result.success is True
@@ -79,8 +77,8 @@ class TestSetDeviceProperty:
                 device, {"ac_switch_hm": True, "dc_switch_hm": False}
             )
 
-            form_data = api._session.request.call_args[1]["data"]
-            data_list = json.loads(json.loads(form_data["json"])["data"])
+            json_body = api._session.request.call_args[1]["json"]
+            data_list = json.loads(json_body["data"])
             assert {"ac_switch_hm": True} in data_list
             assert {"dc_switch_hm": False} in data_list
             assert result.success is True
@@ -133,8 +131,8 @@ class TestSetAcOutput:
         with patch.object(api._session, "request", return_value=_mock_response(response_data)):
             result = api.set_ac_output(device, True)
 
-            form_data = api._session.request.call_args[1]["data"]
-            data_list = json.loads(json.loads(form_data["json"])["data"])
+            json_body = api._session.request.call_args[1]["json"]
+            data_list = json.loads(json_body["data"])
             assert data_list == [{"ac_switch_hm": True}]
             assert result.success is True
 
@@ -153,8 +151,8 @@ class TestSetAcOutput:
         with patch.object(api._session, "request", return_value=_mock_response(response_data)):
             result = api.set_ac_output(device, False)
 
-            form_data = api._session.request.call_args[1]["data"]
-            data_list = json.loads(json.loads(form_data["json"])["data"])
+            json_body = api._session.request.call_args[1]["json"]
+            data_list = json.loads(json_body["data"])
             assert data_list == [{"ac_switch_hm": False}]
             assert result.success is True
 
@@ -175,8 +173,8 @@ class TestSetDcOutput:
         with patch.object(api._session, "request", return_value=_mock_response(response_data)):
             result = api.set_dc_output(device, True)
 
-            form_data = api._session.request.call_args[1]["data"]
-            data_list = json.loads(json.loads(form_data["json"])["data"])
+            json_body = api._session.request.call_args[1]["json"]
+            data_list = json.loads(json_body["data"])
             assert data_list == [{"dc_switch_hm": True}]
             assert result.success is True
 

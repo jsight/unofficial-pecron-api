@@ -24,47 +24,50 @@ from .exceptions import PecronAPIError
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="pecron",
-        description="Query Pecron portable power station status via the cloud API.",
-    )
-    parser.add_argument(
+    # Shared arguments inherited by all subcommands
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument(
         "-r",
         "--region",
         choices=[r.value for r in Region],
         default=os.environ.get("PECRON_REGION", "US"),
         help="Cloud region (default: $PECRON_REGION or US)",
     )
-    parser.add_argument(
+    common.add_argument(
         "-e",
         "--email",
         default=os.environ.get("PECRON_EMAIL"),
         help="Account email (default: $PECRON_EMAIL, or prompted)",
     )
-    parser.add_argument(
+    common.add_argument(
         "-p",
         "--password",
         default=os.environ.get("PECRON_PASSWORD"),
         help="Account password (default: $PECRON_PASSWORD, or prompted)",
     )
-    parser.add_argument(
+    common.add_argument(
         "-d",
         "--device",
         metavar="NAME",
         help="Filter to a specific device by name (substring match)",
     )
-    parser.add_argument(
+    common.add_argument(
         "--json",
         action="store_true",
         dest="json_output",
         help="Output results as JSON",
     )
-    parser.add_argument(
+    common.add_argument(
         "-v",
         "--verbose",
         action="count",
         default=0,
         help="Increase verbosity (-v for info, -vv for debug)",
+    )
+
+    parser = argparse.ArgumentParser(
+        prog="pecron",
+        description="Query Pecron portable power station status via the cloud API.",
     )
     parser.add_argument(
         "--version",
@@ -74,10 +77,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sub = parser.add_subparsers(dest="command")
 
-    sub.add_parser("devices", help="List all devices on the account")
-    sub.add_parser("status", help="Show device properties (battery, power, switches)")
+    sub.add_parser("devices", parents=[common], help="List all devices on the account")
+    sub.add_parser(
+        "status", parents=[common], help="Show device properties (battery, power, switches)"
+    )
 
-    set_parser = sub.add_parser("set", help="Control device outputs (AC, DC)")
+    set_parser = sub.add_parser("set", parents=[common], help="Control device outputs (AC, DC)")
     set_parser.add_argument(
         "--ac",
         choices=["on", "off"],
@@ -98,14 +103,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Value for --property (required with --property)",
     )
 
-    tsl_parser = sub.add_parser("tsl", help="Show device property definitions from TSL")
+    tsl_parser = sub.add_parser(
+        "tsl", parents=[common], help="Show device property definitions from TSL"
+    )
     tsl_parser.add_argument(
         "--writable",
         action="store_true",
         help="Show only writable (controllable) properties",
     )
 
-    sub.add_parser("raw", help="Dump raw business attributes as JSON")
+    sub.add_parser("raw", parents=[common], help="Dump raw business attributes as JSON")
 
     return parser
 

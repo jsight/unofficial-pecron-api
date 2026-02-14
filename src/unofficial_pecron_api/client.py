@@ -174,7 +174,7 @@ class PecronAPI:
         result = self._request(
             "GET",
             "/v2/binding/enduserapi/productTSL",
-            params={"productKey": device.product_key},
+            params={"pk": device.product_key},
         )
         properties = []
         if isinstance(result, dict):
@@ -218,13 +218,13 @@ class PecronAPI:
                     "deviceKey": device.device_key,
                 }
             ],
-            "type": 0,
+            "type": 2,  # 2 = Property write
         }
         try:
             result = self._request(
                 "POST",
                 "/v2/binding/enduserapi/batchControlDevice",
-                form_data={"json": json.dumps(batch_param)},
+                json_body=batch_param,
             )
         except PecronAPIError as exc:
             raise CommandError(exc.message, code=exc.code) from exc
