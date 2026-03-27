@@ -175,6 +175,28 @@ class TestSetDcOutput:
             assert result.success is True
 
 
+class TestSetAcChargeSpeed:
+    def test_sets_charge_speed(self):
+        api = PecronAPI(region="US")
+        api._access_token = "test_token"
+        device = _make_device()
+
+        response_data = {
+            "successList": [
+                {"data": {"productKey": "p11u2Q", "deviceKey": "ACD9296AD469"}, "ticket": "t6"}
+            ],
+            "failureList": [],
+        }
+
+        with patch.object(api._session, "request", return_value=_mock_response(response_data)):
+            result = api.set_ac_charge_speed(device, 2)
+
+            json_body = api._session.request.call_args[1]["json"]
+            data_list = json.loads(json_body["data"])
+            assert data_list == [{"ac_charging_power_ios": 2}]
+            assert result.success is True
+
+
 class TestGetProductTsl:
     def test_parses_nested_tsl_json(self):
         api = PecronAPI(region="US")

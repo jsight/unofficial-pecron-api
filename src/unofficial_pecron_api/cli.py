@@ -6,6 +6,7 @@ Usage:
     pecron status --device E300LFP_D469  # show status of one device
     pecron set --ac on                   # turn AC output on
     pecron set --dc off --device E300    # turn DC output off for one device
+    pecron set --charge-speed 600        # set AC charge speed
     pecron tsl --writable                # show writable properties
     pecron raw                           # dump raw business attributes JSON
 """
@@ -21,6 +22,7 @@ import sys
 
 from . import PecronAPI, Region
 from .exceptions import PecronAPIError
+from .models import DeviceProperties
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -72,7 +74,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s 0.2.0",
+        version="%(prog)s 0.3.0",
     )
 
     sub = parser.add_subparsers(dest="command")
@@ -92,6 +94,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--dc",
         choices=["on", "off"],
         help="Turn DC output on or off",
+    )
+    set_parser.add_argument(
+        "--charge-speed",
+        metavar="LEVEL",
+        help="Set AC charging power level (use 'pecron tsl --writable' to discover valid values)",
     )
     set_parser.add_argument(
         "--property",
@@ -253,12 +260,20 @@ def _cmd_status(args: argparse.Namespace) -> None:
                     "ac_switch": props.ac_switch,
                     "dc_switch": props.dc_switch,
                     "ups_mode": props.ups_status,
+                    "eco_mode": props.eco_mode,
+                    "auto_dim": props.auto_dim,
+                    "ac_charge_speed": props.ac_charge_speed,
+                    "device_status": props.device_status,
+                    "led_status": props.led_status,
+                    "screen_brightness": props.screen_brightness,
+                    "auto_off_time": props.auto_off_time,
                     "charge_minutes": props.remain_charging_time,
                     "discharge_minutes": props.remain_discharging_time,
                     "ac_output": props.ac_output,
                     "dc_output": props.dc_output,
                     "ac_input": props.ac_input,
                     "dc_input": props.dc_input,
+                    "battery_pack": props.battery_pack,
                 }
                 all_results.append(entry)
             else:
@@ -291,8 +306,26 @@ def _print_device_status(dev, props) -> None:
         switches.append(f"DC={'ON' if props.dc_switch else 'OFF'}")
     if props.ups_status is not None:
         switches.append(f"UPS={'ON' if props.ups_status else 'OFF'}")
+    if props.eco_mode is not None:
+        switches.append(f"ECO={'ON' if props.eco_mode else 'OFF'}")
+    if props.auto_dim is not None:
+        switches.append(f"AutoDim={'ON' if props.auto_dim else 'OFF'}")
     if switches:
         print(f"    Switches:       {', '.join(switches)}")
+
+    if props.device_status is not None:
+        print(f"    Device Status:  {props.device_status}")
+    if props.ac_charge_speed is not None:
+        # ENUM values: 0=0%, 1=25%, 2=50%, 3=75%, 4=100% of max AC charging power
+        pct_map = {"0": "0%", "1": "25%", "2": "50%", "3": "75%", "4": "100%"}
+        label = pct_map.get(props.ac_charge_speed, props.ac_charge_speed)
+        print(f"    Charge Speed:   {label}")
+    if props.led_status is not None:
+        print(f"    LED:            {props.led_status}")
+    if props.screen_brightness is not None:
+        print(f"    Brightness:     {props.screen_brightness}")
+    if props.auto_off_time is not None:
+        print(f"    Auto-Off:       {props.auto_off_time}")
 
     if props.remain_charging_time is not None and props.remain_charging_time > 0:
         h, m = divmod(props.remain_charging_time, 60)
@@ -315,6 +348,20 @@ def _print_device_status(dev, props) -> None:
     if props.dc_input:
         w = props.dc_input.get("dc_input_power", "?")
         print(f"    DC/PV Input:    {w} W")
+
+    if props.battery_pack:
+        temp = props.battery_pack.get("host_packet_temp", "?")
+        current = props.battery_pack.get("host_packet_current", "?")
+        voltage = props.battery_pack.get("host_packet_voltage", "?")
+        try:
+            current = f"{float(current):.1f}"
+        except (ValueError, TypeError):
+            pass
+        try:
+            voltage = f"{float(voltage):.1f}"
+        except (ValueError, TypeError):
+            pass
+        print(f"    Battery Pack:   {voltage} V / {current} A / {temp} C")
 
     print()
 
@@ -340,6 +387,12 @@ def _cmd_set(args: argparse.Namespace) -> None:
         properties["ac_switch_hm"] = args.ac == "on"
     if args.dc is not None:
         properties["dc_switch_hm"] = args.dc == "on"
+    if args.charge_speed is not None:
+        try:
+            charge_val = json.loads(args.charge_speed)
+        except (json.JSONDecodeError, ValueError):
+            charge_val = args.charge_speed
+        properties[DeviceProperties.AC_CHARGE_SPEED_CODE] = charge_val
     if args.property:
         if args.value is None:
             print("Error: --value is required when using --property", file=sys.stderr)
@@ -353,7 +406,10 @@ def _cmd_set(args: argparse.Namespace) -> None:
         properties[args.property] = parsed
 
     if not properties:
-        print("Error: at least one of --ac, --dc, or --property is required", file=sys.stderr)
+        print(
+            "Error: at least one of --ac, --dc, --charge-speed, or --property is required",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     with _connect(args) as api:
@@ -476,11 +532,11 @@ def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
 
-    _configure_logging(args.verbose)
-
     if not args.command:
         parser.print_help()
         sys.exit(0)
+
+    _configure_logging(args.verbose)
 
     commands = {
         "devices": _cmd_devices,

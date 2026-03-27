@@ -54,13 +54,29 @@ class DeviceProperties:
       - ac_switch_hm (BOOL): AC output switch
       - dc_switch_hm (BOOL): DC output switch
       - ups_status_hm (BOOL): UPS mode active
+      - eco_quite_mode_as (BOOL): Eco silent mode
+      - auto_light_flag_as (BOOL): Auto-dim on idle
       - remain_charging_time (INT): Minutes until fully charged
       - remain_time (INT): Minutes of discharge remaining
+      - ac_charging_power_ios (ENUM): AC charging power level (0=0%, 1=25%, 2=50%, 3=75%, 4=100%)
+      - device_status_hm (ENUM): Device status code
+      - led_status_hm (ENUM): LED control
+      - machine_screen_light_as (ENUM): Screen brightness level
+      - noastime_io (ENUM): No-output auto-off timer
       - ac_data_output_hm (STRUCT): AC output voltage/power/pf/hz
       - dc_data_output_hm (STRUCT): DC output power
       - ac_data_input_hm (STRUCT): AC input power
       - dc_data_input_hm (STRUCT): DC/PV input power
+      - host_packet_data_jdb (STRUCT): Battery pack details (current/temp/voltage/status)
+
+    Note: The ac_charging_power_ios code was discovered on the E300LFP.
+    Other device models may use a different code — use ``pecron tsl --writable``
+    to check.
     """
+
+    #: Resource code used for the AC charging power property. Override this
+    #: class attribute if your device uses a different code (discover via TSL).
+    AC_CHARGE_SPEED_CODE: str = "ac_charging_power_ios"
 
     battery_percentage: int | None = None
     total_input_power: int | None = None
@@ -68,12 +84,20 @@ class DeviceProperties:
     ac_switch: bool | None = None
     dc_switch: bool | None = None
     ups_status: bool | None = None
+    eco_mode: bool | None = None
+    auto_dim: bool | None = None
     remain_charging_time: int | None = None
     remain_discharging_time: int | None = None
+    ac_charge_speed: str | None = None
+    device_status: str | None = None
+    led_status: str | None = None
+    screen_brightness: str | None = None
+    auto_off_time: str | None = None
     ac_output: dict | None = None
     dc_output: dict | None = None
     ac_input: dict | None = None
     dc_input: dict | None = None
+    battery_pack: dict | None = None
     raw: list[dict] = field(default_factory=list)
 
     @classmethod
@@ -104,10 +128,24 @@ class DeviceProperties:
             self.dc_switch = value.lower() == "true"
         elif code == "ups_status_hm":
             self.ups_status = value.lower() == "true"
+        elif code == "eco_quite_mode_as":
+            self.eco_mode = value.lower() == "true"
+        elif code == "auto_light_flag_as":
+            self.auto_dim = value.lower() == "true"
         elif code == "remain_charging_time":
             self.remain_charging_time = int(value)
         elif code == "remain_time":
             self.remain_discharging_time = int(value)
+        elif code == self.AC_CHARGE_SPEED_CODE:
+            self.ac_charge_speed = value
+        elif code == "device_status_hm":
+            self.device_status = value
+        elif code == "led_status_hm":
+            self.led_status = value
+        elif code == "machine_screen_light_as":
+            self.screen_brightness = value
+        elif code == "noastime_io":
+            self.auto_off_time = value
         elif code == "ac_data_output_hm":
             self.ac_output = json.loads(value) if data_type == "STRUCT" else None
         elif code == "dc_data_output_hm":
@@ -116,6 +154,8 @@ class DeviceProperties:
             self.ac_input = json.loads(value) if data_type == "STRUCT" else None
         elif code == "dc_data_input_hm":
             self.dc_input = json.loads(value) if data_type == "STRUCT" else None
+        elif code == "host_packet_data_jdb":
+            self.battery_pack = json.loads(value) if data_type == "STRUCT" else None
 
     def get_by_code(self, resource_code: str) -> str | None:
         """Look up any property value by resource code from raw data."""

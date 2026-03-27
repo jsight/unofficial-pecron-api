@@ -237,6 +237,25 @@ class PecronAPI:
         """Enable or disable the DC output."""
         return self.set_device_property(device, {"dc_switch_hm": enabled})
 
+    def set_ac_charge_speed(self, device: Device, speed: int | str) -> CommandResult:
+        """Set the AC charging power level.
+
+        Args:
+            device: Target device.
+            speed: Charging power level (ENUM value). Use ``get_product_tsl()``
+                to discover the valid values for your device model.
+
+        Returns:
+            CommandResult with success/failure info.
+
+        Note:
+            The property code defaults to ``ac_charging_power_ios``. If your
+            device uses a different code, set it via
+            ``DeviceProperties.AC_CHARGE_SPEED_CODE`` before calling this, or
+            use ``set_device_property()`` directly with the correct code.
+        """
+        return self.set_device_property(device, {DeviceProperties.AC_CHARGE_SPEED_CODE: speed})
+
     def close(self) -> None:
         """Close the HTTP session."""
         self._session.close()

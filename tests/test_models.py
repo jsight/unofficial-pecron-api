@@ -139,6 +139,90 @@ SAMPLE_TSL_INFO = [
         "resourceValce": '{"dc_input_power":"0"}',
         "createTime": "1770657750098",
     },
+    {
+        "abId": 42,
+        "resourceCode": "ac_charging_power_ios",
+        "name": "Ac charging power",
+        "type": "PROPERTY",
+        "subType": "RW",
+        "dataType": "ENUM",
+        "resourceValce": "2",
+        "createTime": "1770657750098",
+    },
+    {
+        "abId": 37,
+        "resourceCode": "device_status_hm",
+        "name": "Device status",
+        "type": "PROPERTY",
+        "subType": "R",
+        "dataType": "ENUM",
+        "resourceValce": "1",
+        "createTime": "1770657750098",
+    },
+    {
+        "abId": 41,
+        "resourceCode": "eco_quite_mode_as",
+        "name": "Eco silent mode",
+        "type": "PROPERTY",
+        "subType": "RW",
+        "dataType": "BOOL",
+        "resourceValce": "false",
+        "createTime": "1770657750098",
+    },
+    {
+        "abId": 43,
+        "resourceCode": "auto_light_flag_as",
+        "name": "Auto-dim on idle",
+        "type": "PROPERTY",
+        "subType": "RW",
+        "dataType": "BOOL",
+        "resourceValce": "true",
+        "createTime": "1770657750098",
+    },
+    {
+        "abId": 46,
+        "resourceCode": "led_status_hm",
+        "name": "Led",
+        "type": "PROPERTY",
+        "subType": "RW",
+        "dataType": "ENUM",
+        "resourceValce": "0",
+        "createTime": "1770657750098",
+    },
+    {
+        "abId": 45,
+        "resourceCode": "machine_screen_light_as",
+        "name": "Machine screen brightness",
+        "type": "PROPERTY",
+        "subType": "RW",
+        "dataType": "ENUM",
+        "resourceValce": "4",
+        "createTime": "1770657750098",
+    },
+    {
+        "abId": 34,
+        "resourceCode": "noastime_io",
+        "name": "No output auto-off time",
+        "type": "PROPERTY",
+        "subType": "RW",
+        "dataType": "ENUM",
+        "resourceValce": "0",
+        "createTime": "1770657750098",
+    },
+    {
+        "abId": 35,
+        "resourceCode": "host_packet_data_jdb",
+        "name": "Host electrical package details",
+        "type": "PROPERTY",
+        "subType": "R",
+        "dataType": "STRUCT",
+        "resourceValce": (
+            '{"host_packet_current":"-10.7","host_packet_temp":"28",'
+            '"host_packet_status":"0","host_packet_electric_percentage":"100",'
+            '"host_packet_voltage":"20.3"}'
+        ),
+        "createTime": "1770657750098",
+    },
 ]
 
 
@@ -182,6 +266,26 @@ class TestDeviceProperties:
         props = DeviceProperties.from_api(SAMPLE_TSL_INFO)
         assert props.remain_charging_time == 60
         assert props.remain_discharging_time == 118
+
+    def test_from_api_charge_speed(self):
+        props = DeviceProperties.from_api(SAMPLE_TSL_INFO)
+        assert props.ac_charge_speed == "2"
+
+    def test_from_api_device_status(self):
+        props = DeviceProperties.from_api(SAMPLE_TSL_INFO)
+        assert props.device_status == "1"
+        assert props.eco_mode is False
+        assert props.auto_dim is True
+        assert props.led_status == "0"
+        assert props.screen_brightness == "4"
+        assert props.auto_off_time == "0"
+
+    def test_from_api_battery_pack(self):
+        props = DeviceProperties.from_api(SAMPLE_TSL_INFO)
+        assert props.battery_pack is not None
+        assert props.battery_pack["host_packet_temp"] == "28"
+        assert props.battery_pack["host_packet_voltage"] == "20.3"
+        assert props.battery_pack["host_packet_current"] == "-10.7"
 
     def test_from_api_struct_fields(self):
         props = DeviceProperties.from_api(SAMPLE_TSL_INFO)
