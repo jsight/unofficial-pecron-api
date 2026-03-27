@@ -56,8 +56,8 @@ class DeviceProperties:
       - ups_status_hm (BOOL): UPS mode active
       - eco_quite_mode_as (BOOL): Eco silent mode
       - auto_light_flag_as (BOOL): Auto-dim on idle
-      - remain_charging_time (INT): Minutes until fully charged
-      - remain_time (INT): Minutes of discharge remaining
+      - remain_charging_time (INT): Minutes until fully charged (see known issue below)
+      - remain_time (INT): Minutes of discharge remaining (see known issue below)
       - ac_charging_power_ios (ENUM): AC charging power level (0=0%, 1=25%, 2=50%, 3=75%, 4=100%)
       - device_status_hm (ENUM): Device status code
       - led_status_hm (ENUM): LED control
@@ -72,6 +72,12 @@ class DeviceProperties:
     Note: The ac_charging_power_ios code was discovered on the E300LFP.
     Other device models may use a different code — use ``pecron tsl --writable``
     to check.
+
+    Known issue: The Pecron API returns identical values for ``remain_charging_time``
+    and ``remain_time``. Both fields reflect the current device state — when
+    discharging, both report time-to-empty; when charging, both report time-to-full.
+    Only one value is meaningful at a given time. This is a Pecron API/firmware bug,
+    not a bug in this library. See https://github.com/jsight/unofficial-pecron-api/issues/1
     """
 
     #: Resource code used for the AC charging power property. Override this

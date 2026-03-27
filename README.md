@@ -220,6 +220,7 @@ with PecronAPI(region="US") as api:
 | `get_product_tsl(device)` | `list[TslProperty]` | Property definitions (discover writable props) |
 | `set_ac_output(device, enabled)` | `CommandResult` | Turn AC output on/off |
 | `set_dc_output(device, enabled)` | `CommandResult` | Turn DC output on/off |
+| `set_ac_charge_speed(device, speed)` | `CommandResult` | Set AC charging power level (0–4) |
 | `set_device_property(device, props)` | `CommandResult` | Set arbitrary properties by code |
 | `close()` | `None` | Close HTTP session |
 
@@ -244,12 +245,20 @@ with PecronAPI(region="US") as api:
 | `ac_switch` | `bool \| None` | AC output on/off |
 | `dc_switch` | `bool \| None` | DC output on/off |
 | `ups_status` | `bool \| None` | UPS mode on/off |
-| `remain_charging_time` | `int \| None` | Minutes to full |
-| `remain_discharging_time` | `int \| None` | Minutes to empty |
+| `remain_charging_time` | `int \| None` | Minutes to full (see [known limitations](#known-limitations)) |
+| `remain_discharging_time` | `int \| None` | Minutes to empty (see [known limitations](#known-limitations)) |
+| `ac_charge_speed` | `str \| None` | AC charging power level (ENUM 0–4 = 0%–100%) |
+| `eco_mode` | `bool \| None` | Eco silent mode |
+| `auto_dim` | `bool \| None` | Auto-dim on idle |
+| `device_status` | `str \| None` | Device status code |
+| `led_status` | `str \| None` | LED control |
+| `screen_brightness` | `str \| None` | Screen brightness level |
+| `auto_off_time` | `str \| None` | No-output auto-off timer |
 | `ac_output` | `dict \| None` | Voltage, power, PF, Hz |
 | `dc_output` | `dict \| None` | Power |
 | `ac_input` | `dict \| None` | Power |
 | `dc_input` | `dict \| None` | Power |
+| `battery_pack` | `dict \| None` | Battery voltage, current, temp, status |
 | `raw` | `list[dict]` | Full `customizeTslInfo` for custom access |
 
 Use `props.get_by_code("resource_code")` to access any property not covered by the typed fields.
@@ -271,6 +280,19 @@ Use `props.get_by_code("resource_code")` to access any property not covered by t
 | `data_type` | `str` | `"BOOL"`, `"INT"`, `"STRUCT"`, etc. |
 | `sub_type` | `str` | `"R"` (read), `"RW"` (read-write), `"W"` (write) |
 | `writable` | `bool` | `True` if the property can be set |
+
+## Known Limitations
+
+### `remain_charging_time` and `remain_discharging_time` report identical values
+
+The Pecron cloud API returns the same value for both `remain_charging_time` and `remain_time` (mapped to `remain_discharging_time` in this library). Both fields reflect the current device state:
+
+- **When discharging:** both report time-to-empty
+- **When charging:** both report time-to-full
+
+Only one value is meaningful at a given time. You can infer which by checking power flow (e.g., `total_input_power > total_output_power` means charging).
+
+This is a **Pecron API/firmware bug**, not a bug in this library — we parse exactly what the API provides. See [#1](https://github.com/jsight/unofficial-pecron-api/issues/1) for details.
 
 ## Supported Regions
 
