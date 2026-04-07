@@ -49,3 +49,8 @@ auth_cache.*
 # Session / token caches the CLI might create
 .pecron_token
 .pecron_session
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
