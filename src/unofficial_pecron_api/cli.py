@@ -74,7 +74,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s 0.3.0",
+        version="%(prog)s 0.4.0",
     )
 
     sub = parser.add_subparsers(dest="command")
@@ -230,6 +230,18 @@ def _cmd_devices(args: argparse.Namespace) -> None:
                 print()
 
 
+def _build_enum_map(api, dev, code: str) -> dict[str, str]:
+    """Fetch TSL and return value->name map for an ENUM property, or empty dict."""
+    try:
+        tsl_props = api.get_product_tsl(dev)
+        for p in tsl_props:
+            if p.code == code and p.enum_values:
+                return p.enum_map
+    except PecronAPIError:
+        pass
+    return {}
+
+
 def _cmd_status(args: argparse.Namespace) -> None:
     with _connect(args) as api:
         devices = _filter_devices(api.get_devices(), args.device)
@@ -247,6 +259,9 @@ def _cmd_status(args: argparse.Namespace) -> None:
             except PecronAPIError as exc:
                 print(f"Error fetching {dev.device_name}: {exc}", file=sys.stderr)
                 continue
+
+            # Fetch TSL-based enum map for charge speed display
+            charge_speed_map = _build_enum_map(api, dev, DeviceProperties.AC_CHARGE_SPEED_CODE)
 
             if args.json_output:
                 entry = {
@@ -277,13 +292,13 @@ def _cmd_status(args: argparse.Namespace) -> None:
                 }
                 all_results.append(entry)
             else:
-                _print_device_status(dev, props)
+                _print_device_status(dev, props, charge_speed_map)
 
         if args.json_output:
             print(json.dumps(all_results, indent=2))
 
 
-def _print_device_status(dev, props) -> None:
+def _print_device_status(dev, props, charge_speed_map: dict[str, str] | None = None) -> None:
     """Pretty-print a single device's status to the terminal."""
     status = "\033[32mOnline\033[0m" if dev.online else "\033[31mOffline\033[0m"
     print(f"  {dev.device_name} ({dev.product_name}) [{status}]")
@@ -316,9 +331,9 @@ def _print_device_status(dev, props) -> None:
     if props.device_status is not None:
         print(f"    Device Status:  {props.device_status}")
     if props.ac_charge_speed is not None:
-        # ENUM values: 0=0%, 1=25%, 2=50%, 3=75%, 4=100% of max AC charging power
-        pct_map = {"0": "0%", "1": "25%", "2": "50%", "3": "75%", "4": "100%"}
-        label = pct_map.get(props.ac_charge_speed, props.ac_charge_speed)
+        pct_map = charge_speed_map or {}
+        name = pct_map.get(props.ac_charge_speed)
+        label = f"{name}%" if name else props.ac_charge_speed
         print(f"    Charge Speed:   {label}")
     if props.led_status is not None:
         print(f"    LED:            {props.led_status}")
@@ -473,20 +488,32 @@ def _cmd_tsl(args: argparse.Namespace) -> None:
                 tsl_props = [p for p in tsl_props if p.writable]
 
             if args.json_output:
+                props_out = []
+                for p in tsl_props:
+                    entry = {
+                        "code": p.code,
+                        "name": p.name,
+                        "data_type": p.data_type,
+                        "sub_type": p.sub_type,
+                        "writable": p.writable,
+                    }
+                    if p.enum_values:
+                        entry["enum_values"] = [
+                            {"value": ev.value, "name": ev.name} for ev in p.enum_values
+                        ]
+                    if p.int_spec:
+                        entry["int_spec"] = {
+                            "min": p.int_spec.min,
+                            "max": p.int_spec.max,
+                            "step": p.int_spec.step,
+                            "unit": p.int_spec.unit,
+                        }
+                    props_out.append(entry)
                 all_results.append(
                     {
                         "device": dev.device_name,
                         "product": dev.product_name,
-                        "properties": [
-                            {
-                                "code": p.code,
-                                "name": p.name,
-                                "data_type": p.data_type,
-                                "sub_type": p.sub_type,
-                                "writable": p.writable,
-                            }
-                            for p in tsl_props
-                        ],
+                        "properties": props_out,
                     }
                 )
             else:
@@ -497,7 +524,21 @@ def _cmd_tsl(args: argparse.Namespace) -> None:
                     print(f"    {'Code':<30s} {'Name':<20s} {'Type':<8s} {'Access'}")
                     print(f"    {'-' * 30} {'-' * 20} {'-' * 8} {'-' * 6}")
                     for p in tsl_props:
-                        print(f"    {p.code:<30s} {p.name:<20s} {p.data_type:<8s} {p.sub_type}")
+                        line = f"    {p.code:<30s} {p.name:<20s} {p.data_type:<8s} {p.sub_type}"
+                        if p.enum_values:
+                            vals = ", ".join(f"{ev.value}={ev.name}" for ev in p.enum_values)
+                            line += f"  [{vals}]"
+                        elif p.int_spec:
+                            parts = []
+                            if p.int_spec.min is not None:
+                                parts.append(f"min={p.int_spec.min}")
+                            if p.int_spec.max is not None:
+                                parts.append(f"max={p.int_spec.max}")
+                            if p.int_spec.unit:
+                                parts.append(f"unit={p.int_spec.unit}")
+                            if parts:
+                                line += f"  [{', '.join(parts)}]"
+                        print(line)
                 else:
                     print("    (none)")
                 print()

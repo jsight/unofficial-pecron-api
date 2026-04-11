@@ -58,7 +58,7 @@ class DeviceProperties:
       - auto_light_flag_as (BOOL): Auto-dim on idle
       - remain_charging_time (INT): Minutes until fully charged (see known issue below)
       - remain_time (INT): Minutes of discharge remaining (see known issue below)
-      - ac_charging_power_ios (ENUM): AC charging power level (0=0%, 1=25%, 2=50%, 3=75%, 4=100%)
+      - ac_charging_power_ios (ENUM): AC charging power level (model-dependent; use TSL specs)
       - device_status_hm (ENUM): Device status code
       - led_status_hm (ENUM): LED control
       - machine_screen_light_as (ENUM): Screen brightness level
@@ -196,23 +196,86 @@ class CommandResult:
 
 
 @dataclass
+class TslEnumValue:
+    """A single enum option from a TSL property spec."""
+
+    value: str
+    name: str
+
+    def __repr__(self) -> str:
+        return f"TslEnumValue(value={self.value!r}, name={self.name!r})"
+
+
+@dataclass
+class TslIntSpec:
+    """Numeric range spec for INT/FLOAT TSL properties."""
+
+    min: str | None = None
+    max: str | None = None
+    step: str | None = None
+    unit: str | None = None
+
+
+@dataclass
 class TslProperty:
-    """A device property definition from the Thing Specification Language model."""
+    """A device property definition from the Thing Specification Language model.
+
+    The ``specs`` field captures the raw ``specs`` object from the API.
+
+    For convenience, parsed specs are available via typed accessors:
+
+    * ``enum_values`` — for ENUM properties, a list of :class:`TslEnumValue`
+      (value/name pairs) derived from specs.
+    * ``int_spec`` — for INT/FLOAT properties, a :class:`TslIntSpec` with
+      min/max/step/unit.
+    * ``enum_map`` — shortcut dict mapping API value -> display name for ENUMs.
+    """
 
     code: str
     name: str
     data_type: str
     sub_type: str
     writable: bool
+    specs: list | dict | None = field(default=None, repr=False)
+    enum_values: list[TslEnumValue] = field(default_factory=list)
+    int_spec: TslIntSpec | None = None
+
+    @property
+    def enum_map(self) -> dict[str, str]:
+        """Map of API value -> display name for ENUM properties.
+
+        Returns an empty dict for non-ENUM properties.
+        """
+        return {ev.value: ev.name for ev in self.enum_values}
 
     @classmethod
     def from_api(cls, data: dict) -> TslProperty:
         """Parse a single property from the productTSL API response."""
         sub_type = data.get("subType", "R")
+        raw_specs = data.get("specs")
+        enum_values: list[TslEnumValue] = []
+        int_spec: TslIntSpec | None = None
+        data_type = data.get("dataType", "")
+
+        if isinstance(raw_specs, list) and data_type == "ENUM":
+            for item in raw_specs:
+                if isinstance(item, dict) and "value" in item:
+                    enum_values.append(TslEnumValue(value=item["value"], name=item.get("name", "")))
+        elif isinstance(raw_specs, dict) and data_type in ("INT", "FLOAT"):
+            int_spec = TslIntSpec(
+                min=raw_specs.get("min"),
+                max=raw_specs.get("max"),
+                step=raw_specs.get("step"),
+                unit=raw_specs.get("unit"),
+            )
+
         return cls(
             code=data.get("code", data.get("resourceCode", "")),
             name=data.get("name", ""),
-            data_type=data.get("dataType", ""),
+            data_type=data_type,
             sub_type=sub_type,
             writable=sub_type in ("RW", "W"),
+            specs=raw_specs,
+            enum_values=enum_values,
+            int_spec=int_spec,
         )

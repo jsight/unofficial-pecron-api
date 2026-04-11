@@ -1,6 +1,13 @@
 """Tests for data model parsing."""
 
-from unofficial_pecron_api.models import CommandResult, Device, DeviceProperties, TslProperty
+from unofficial_pecron_api.models import (
+    CommandResult,
+    Device,
+    DeviceProperties,
+    TslEnumValue,
+    TslIntSpec,
+    TslProperty,
+)
 
 SAMPLE_DEVICE_API = {
     "deviceName": "E300LFP_D469",
@@ -432,3 +439,85 @@ class TestTslProperty:
         assert prop.data_type == ""
         assert prop.sub_type == "R"
         assert prop.writable is False
+        assert prop.enum_values == []
+        assert prop.int_spec is None
+        assert prop.enum_map == {}
+
+    def test_from_api_enum_specs(self):
+        prop = TslProperty.from_api(
+            {
+                "code": "ac_charging_power_ios",
+                "name": "Ac charging power",
+                "dataType": "ENUM",
+                "subType": "RW",
+                "specs": [
+                    {"dataType": "ENUM", "name": "0", "value": "0"},
+                    {"dataType": "ENUM", "name": "25", "value": "1"},
+                    {"dataType": "ENUM", "name": "50", "value": "2"},
+                    {"dataType": "ENUM", "name": "75", "value": "3"},
+                    {"dataType": "ENUM", "name": "100", "value": "4"},
+                ],
+            }
+        )
+        assert len(prop.enum_values) == 5
+        assert prop.enum_values[0] == TslEnumValue(value="0", name="0")
+        assert prop.enum_values[4] == TslEnumValue(value="4", name="100")
+        assert prop.enum_map == {"0": "0", "1": "25", "2": "50", "3": "75", "4": "100"}
+        assert prop.int_spec is None
+
+    def test_from_api_enum_specs_e3600(self):
+        """Test enum specs for E3600LFP-style charge speed (1-10 = 10%-100%)."""
+        specs = [{"dataType": "ENUM", "name": str(i * 10), "value": str(i)} for i in range(1, 11)]
+        prop = TslProperty.from_api(
+            {
+                "code": "ac_charging_power_ios",
+                "name": "Ac charging power",
+                "dataType": "ENUM",
+                "subType": "RW",
+                "specs": specs,
+            }
+        )
+        assert len(prop.enum_values) == 10
+        assert prop.enum_map["1"] == "10"
+        assert prop.enum_map["10"] == "100"
+
+    def test_from_api_int_specs(self):
+        prop = TslProperty.from_api(
+            {
+                "code": "total_output_power",
+                "name": "Output",
+                "dataType": "INT",
+                "subType": "R",
+                "specs": {"unit": "W", "min": "0", "max": "65535", "step": "1"},
+            }
+        )
+        assert prop.enum_values == []
+        assert prop.int_spec is not None
+        assert prop.int_spec == TslIntSpec(min="0", max="65535", step="1", unit="W")
+
+    def test_from_api_float_specs(self):
+        prop = TslProperty.from_api(
+            {
+                "code": "ac_output_voltage",
+                "name": "Ac output voltage",
+                "dataType": "FLOAT",
+                "subType": "R",
+                "specs": {"unit": "V", "min": "0", "max": "65535", "step": "0.1"},
+            }
+        )
+        assert prop.int_spec is not None
+        assert prop.int_spec.unit == "V"
+        assert prop.int_spec.step == "0.1"
+
+    def test_from_api_specs_preserved_raw(self):
+        raw_specs = [{"dataType": "ENUM", "name": "Off", "value": "0"}]
+        prop = TslProperty.from_api(
+            {
+                "code": "noastime_io",
+                "name": "Auto-off",
+                "dataType": "ENUM",
+                "subType": "RW",
+                "specs": raw_specs,
+            }
+        )
+        assert prop.specs is raw_specs

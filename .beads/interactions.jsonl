@@ -1,0 +1,1 @@
+{"id":"int-399fee3d","kind":"field_change","created_at":"2026-04-11T01:58:14.73209203Z","actor":"Jesse Sightler","issue_id":"PECRON-cwo","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Implemented TSL specs parsing on TslProperty with enum_values, int_spec, and enum_map accessors. CLI now uses TSL-derived mappings instead of hardcoded values."}}

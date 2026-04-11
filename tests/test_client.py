@@ -212,6 +212,7 @@ class TestGetProductTsl:
                             "name": "Battery power",
                             "dataType": "INT",
                             "subType": "R",
+                            "specs": {"unit": "%", "min": "0", "max": "100", "step": "1"},
                         },
                         {
                             "code": "ac_switch_hm",
@@ -229,8 +230,40 @@ class TestGetProductTsl:
             assert len(props) == 2
             assert props[0].code == "battery_percentage"
             assert props[0].writable is False
+            assert props[0].int_spec is not None
+            assert props[0].int_spec.unit == "%"
             assert props[1].code == "ac_switch_hm"
             assert props[1].writable is True
+
+    def test_parses_enum_specs(self):
+        api = PecronAPI(region="US")
+        api._access_token = "test_token"
+        device = _make_device()
+
+        tsl_response = {
+            "properties": [
+                {
+                    "code": "ac_charging_power_ios",
+                    "name": "Ac charging power",
+                    "dataType": "ENUM",
+                    "subType": "RW",
+                    "specs": [
+                        {"dataType": "ENUM", "name": "0", "value": "0"},
+                        {"dataType": "ENUM", "name": "25", "value": "1"},
+                        {"dataType": "ENUM", "name": "50", "value": "2"},
+                        {"dataType": "ENUM", "name": "75", "value": "3"},
+                        {"dataType": "ENUM", "name": "100", "value": "4"},
+                    ],
+                },
+            ]
+        }
+
+        with patch.object(api._session, "request", return_value=_mock_response(tsl_response)):
+            props = api.get_product_tsl(device)
+            assert len(props) == 1
+            p = props[0]
+            assert len(p.enum_values) == 5
+            assert p.enum_map == {"0": "0", "1": "25", "2": "50", "3": "75", "4": "100"}
 
     def test_parses_flat_properties(self):
         api = PecronAPI(region="US")
