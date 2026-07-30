@@ -54,7 +54,7 @@ class DeviceProperties:
       - ac_switch_hm (BOOL): AC output switch
       - dc_switch_hm (BOOL): DC output switch
       - ups_status_hm (BOOL): UPS mode active
-      - eco_quite_mode_as (BOOL): Eco silent mode
+      - eco_quite_mode_as / eco_onoff_us (BOOL): Eco silent mode (model-dependent)
       - auto_light_flag_as (BOOL): Auto-dim on idle
       - remain_charging_time (INT): Minutes until fully charged (see known issue below)
       - remain_time (INT): Minutes of discharge remaining (see known issue below)
@@ -134,7 +134,7 @@ class DeviceProperties:
             self.dc_switch = value.lower() == "true"
         elif code == "ups_status_hm":
             self.ups_status = value.lower() == "true"
-        elif code == "eco_quite_mode_as":
+        elif code in {"eco_quite_mode_as", "eco_onoff_us"}:
             self.eco_mode = value.lower() == "true"
         elif code == "auto_light_flag_as":
             self.auto_dim = value.lower() == "true"
