@@ -1,6 +1,6 @@
 """Unofficial Python API client for Pecron portable power stations."""
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 
 from .client import PecronAPI
 from .const import Region

@@ -74,7 +74,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--version",
         action="version",
-        version="%(prog)s 0.4.0",
+        version="%(prog)s 0.4.1",
     )
 
     sub = parser.add_subparsers(dest="command")
