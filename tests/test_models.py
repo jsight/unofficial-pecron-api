@@ -287,6 +287,19 @@ class TestDeviceProperties:
         assert props.screen_brightness == "4"
         assert props.auto_off_time == "0"
 
+    def test_from_api_eco_mode_f3000lfp_code(self):
+        for value, expected in (("true", True), ("false", False)):
+            props = DeviceProperties.from_api(
+                [
+                    {
+                        "resourceCode": "eco_onoff_us",
+                        "dataType": "BOOL",
+                        "resourceValce": value,
+                    }
+                ]
+            )
+            assert props.eco_mode is expected
+
     def test_from_api_battery_pack(self):
         props = DeviceProperties.from_api(SAMPLE_TSL_INFO)
         assert props.battery_pack is not None
